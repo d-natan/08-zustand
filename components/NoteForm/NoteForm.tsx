@@ -1,17 +1,28 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { createNote } from '@/lib/api/notes';
 import { useNoteStore } from '@/lib/store/noteStore';
+
 import css from './NoteForm.module.css';
 
 export default function NoteForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const {
-    draft,
-    setDraft,
-    clearDraft,
-  } = useNoteStore();
+  const { draft, setDraft, clearDraft } = useNoteStore();
+
+  const mutation = useMutation({
+    mutationFn: createNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+
+      clearDraft();
+      router.back();
+    },
+  });
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -25,34 +36,16 @@ export default function NoteForm() {
     });
   };
 
-  const handleSubmit = async (
-    formData: FormData
-  ) => {
-    const data = {
-      title: formData.get('title'),
-      content: formData.get('content'),
-      tag: formData.get('tag'),
-    };
-
-    try {
-      await fetch('/api/notes', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-
-      clearDraft();
-
-      router.back();
-    } catch (error) {
-      console.error(error);
-    }
+  const handleSubmit = async (formData: FormData) => {
+    mutation.mutate({
+      title: String(formData.get('title')),
+      content: String(formData.get('content')),
+      tag: String(formData.get('tag')),
+    });
   };
 
   return (
-    <form
-      className={css.form}
-      action={handleSubmit}
-    >
+    <form className={css.form} action={handleSubmit}>
       <input
         name="title"
         value={draft.title}
@@ -75,6 +68,8 @@ export default function NoteForm() {
         <option value="Todo">Todo</option>
         <option value="Work">Work</option>
         <option value="Personal">Personal</option>
+        <option value="Meeting">Meeting</option>
+        <option value="Shopping">Shopping</option>
       </select>
 
       <div className={css.actions}>
